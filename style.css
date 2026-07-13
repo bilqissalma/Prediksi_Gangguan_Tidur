@@ -1,0 +1,580 @@
+/* ==========================================================
+FONT
+========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+html, body, [class*="css"]{
+    font-family:'Poppins',sans-serif;
+}
+
+/* ==========================================================
+BACKGROUND
+========================================================== */
+
+.stApp{
+    background:#FFFDF0;
+}
+
+.block-container{
+    max-width:1250px;
+    padding-top:25px;
+    padding-bottom:50px;
+}
+
+/* ==========================================================
+SIDEBAR
+========================================================== */
+
+section[data-testid="stSidebar"]{
+
+    background:#001840;
+
+}
+
+section[data-testid="stSidebar"] *{
+
+    color:white !important;
+
+}
+
+section[data-testid="stSidebar"] hr{
+
+    display:none;
+
+}
+.form-card h2{
+
+    color:#001840;
+
+    font-size:32px;
+
+    font-weight:700;
+
+    margin-bottom:8px;
+
+}
+
+.form-card p{
+
+    color:#5B6475;
+
+    font-size:16px;
+
+    margin-bottom:25px;
+
+}
+.form-card h3{
+
+    color:#767b83;
+
+    font-size:32px;
+
+    font-weight:700;
+
+    margin-bottom:8px;
+
+}
+.form-card h4{
+
+    color:#212223;
+
+    font-size:32px;
+
+    font-weight:700;
+
+    margin-bottom:8px;
+
+}
+/* ==========================================================
+HEADER
+========================================================== */
+
+.header{
+
+    background:linear-gradient(
+    135deg,
+    #001840,
+    #102A71,
+    #F5C400
+    );
+
+    padding:45px;
+
+    border-radius:25px;
+
+    text-align:center;
+
+    color:white;
+
+    margin-bottom:35px;
+
+    box-shadow:0px 15px 35px rgba(0,0,0,.18);
+
+}
+
+.header h1{
+
+    font-size:48px;
+
+    margin-bottom:10px;
+    color:white;
+
+}
+
+.header h3{
+
+    font-weight:400;
+
+    margin-bottom:18px;
+
+    color:rgb(68, 64, 64);
+
+}
+
+.header p{
+
+    font-size:18px;
+
+    color:white;
+
+}
+
+/* ==========================================================
+CARD
+========================================================== */
+
+.dashboard-card{
+
+    background:white;
+
+    border-radius:20px;
+
+    padding:25px;
+
+    margin-bottom:20px;
+
+    border-top:6px solid #F5C400;
+
+    box-shadow:0px 5px 18px rgba(0,0,0,.08);
+
+}
+
+/* ==========================================================
+TITLE CARD
+========================================================== */
+
+.dashboard-card h2{
+
+    color:#001840;
+
+    font-size:28px;
+
+    margin-bottom:18px;
+
+}
+
+.dashboard-card p{
+
+    color:#555;
+
+    font-size:17px;
+
+    line-height:1.8;
+
+}
+
+/* ==========================================================
+SECTION TITLE
+========================================================== */
+
+.section-title{
+
+    color:#001840;
+
+    font-size:34px;
+
+    font-weight:bold;
+
+    margin-top:25px;
+
+    margin-bottom:20px;
+
+}
+/* ==========================================================
+LABEL INPUT
+========================================================== */
+
+label[data-testid="stWidgetLabel"] p{
+
+    color:#001840 !important;
+
+    font-size:18px !important;
+
+    font-weight:600 !important;
+
+    margin-bottom:6px !important;
+
+}
+
+/* ==========================================================
+FORM CARD
+========================================================== */
+
+.form-card{
+
+    background:white;
+
+    border-radius:20px;
+
+    padding:30px;
+
+    margin-bottom:30px;
+
+    box-shadow:0px 6px 20px rgba(0,0,0,.08);
+
+    border-left:7px solid #102A71;
+
+}
+
+/* ==========================================================
+BUTTON
+========================================================== */
+
+.stFormSubmitButton>button{
+
+    background:linear-gradient(
+    90deg,
+    #001840,
+    #102A71
+    );
+
+    color:white;
+
+    border:none;
+
+    height:55px;
+
+    border-radius:14px;
+
+    font-size:18px;
+
+    font-weight:bold;
+
+    width:100%;
+
+}
+
+.stFormSubmitButton>button:hover{
+
+    background:linear-gradient(
+    90deg,
+    #102A71,
+    #F5C400
+    );
+
+    color:white;
+
+}
+
+/* ==========================================================
+METRIC
+========================================================== */
+
+div[data-testid="metric-container"]{
+
+    border-radius:18px;
+
+    background:white;
+
+    border-top:5px solid #F5C400;
+
+    padding:18px;
+
+}
+
+/* ==========================================================
+HIDE STREAMLIT FOOTER
+========================================================== */
+
+footer{
+
+    visibility:hidden;
+
+}
+/* ==========================================================
+FORM CARD
+========================================================== */
+
+.form-card{
+
+    background:white;
+
+    border-radius:18px;
+
+    padding:28px;
+
+    margin-bottom:25px;
+
+    border-left:6px solid #F5C400;
+
+    box-shadow:0 5px 18px rgba(0,0,0,.08);
+
+}
+
+.form-card h2{
+
+    color:#001840;
+
+    margin-bottom:8px;
+
+    font-size:28px;
+
+}
+
+.form-card p{
+
+    color:#6B7280;
+
+    margin-bottom:20px;
+
+}
+
+/* ==========================================================
+INPUT
+========================================================== */
+
+label{
+
+    font-size:16px !important;
+
+    font-weight:600 !important;
+
+    color:#001840 !important;
+
+}
+/* ===========================
+   HASIL PREDIKSI
+=========================== */
+
+.result-card{
+    background:#fff;
+    border-radius:22px;
+    padding:30px;
+    margin:20px 0;
+    box-shadow:0 10px 30px rgba(0,0,0,.08);
+    border-left:8px solid #2563eb;
+}
+
+.result-title{
+    font-size:38px;
+    font-weight:700;
+    margin-bottom:10px;
+    color:#102A5C;
+}
+
+.result-desc{
+    color:#5B6475;
+    font-size:17px;
+    line-height:1.8;
+}
+
+.metric-card{
+
+    background:white;
+    border-radius:18px;
+    padding:20px;
+
+    text-align:center;
+
+    box-shadow:0 5px 20px rgba(0,0,0,.08);
+
+    border-top:5px solid #f4b400;
+
+}
+
+.metric-value{
+
+    font-size:32px;
+    font-weight:700;
+    color:#102A5C;
+
+}
+
+.metric-label{
+
+    color:#777;
+    font-size:15px;
+
+}
+
+.prob-card{
+
+    background:white;
+    border-radius:18px;
+    padding:25px;
+    margin-top:20px;
+
+    box-shadow:0 5px 20px rgba(0,0,0,.08);
+
+}
+
+.interpret-card{
+
+    background:#ffffff;
+    border-left:6px solid #22C55E;
+
+    border-radius:18px;
+
+    padding:25px;
+
+    margin-top:20px;
+
+    box-shadow:0 5px 20px rgba(0,0,0,.08);
+
+}
+
+.interpret-card h3{
+
+    color:#102A5C;
+
+}
+
+.interpret-card p{
+
+    color:#555;
+    line-height:1.8;
+
+}
+
+
+/* Progress */
+
+.stProgress > div > div{
+
+    background:#2563eb;
+
+}
+/* ==========================================================
+STEP 5 - HASIL PREDIKSI
+========================================================== */
+
+.prediction-card{
+
+    background:#ffffff;
+
+    border-radius:20px;
+
+    padding:30px;
+
+    margin:25px 0;
+
+    box-shadow:0 8px 24px rgba(0,0,0,.08);
+
+    border-left:8px solid #2563EB;
+
+}
+
+.prediction-title{
+
+    font-size:38px;
+
+    font-weight:700;
+
+    color:#102A5C;
+
+    margin-bottom:18px;
+
+}
+
+.prediction-desc{
+
+    color:#4B5563;
+
+    font-size:18px;
+
+    line-height:1.8;
+
+}
+
+.prediction-section{
+
+    color:#102A5C;
+
+    font-size:30px;
+
+    font-weight:700;
+
+    margin-top:35px;
+
+    margin-bottom:20px;
+
+}
+
+.prediction-label{
+
+    color:#102A5C;
+
+    font-size:18px;
+
+    font-weight:600;
+
+    margin-bottom:8px;
+
+}
+
+.prediction-percent{
+
+    color:#4B5563;
+
+    font-size:16px;
+
+    margin-top:6px;
+
+    margin-bottom:22px;
+
+}
+/* ==========================================
+SECTION TITLE HASIL PREDIKSI
+========================================== */
+
+.prediction-section{
+
+    color:#001840 !important;
+
+    font-size:32px;
+
+    font-weight:700;
+
+    margin-top:10px;
+
+    margin-bottom:20px;
+
+}
+/* ==========================================
+EXPANDER
+========================================== */
+
+div[data-testid="stExpander"] details summary{
+
+    color:#001840 !important;
+
+    font-weight:600 !important;
+
+    font-size:18px !important;
+
+}
+
+div[data-testid="stExpander"] details summary p{
+
+    color:#001840 !important;
+
+}
+
+div[data-testid="stExpander"]{
+
+    background:white;
+
+    border-radius:12px;
+
+}
