@@ -2,6 +2,13 @@
 # ANALISIS RISIKO GANGGUAN TIDUR
 # RANDOM FOREST CLASSIFIER - MODEL B (TANPA DEMOGRAFI)
 # ============================================================
+import os
+
+# Membatasi penggunaan thread agar stabil di Streamlit Cloud
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import joblib
 import pandas as pd
@@ -28,9 +35,16 @@ load_css()
 
 @st.cache_resource
 def load_artifacts():
+
     model = joblib.load("sleep_disorder_rf.joblib")
     label_encoders = joblib.load("label_encoders.joblib")
     feature_names = joblib.load("feature_names.joblib")
+
+    # Model disimpan dengan n_jobs=-1.
+    # Untuk deployment, batasi agar tidak memakai semua CPU.
+    if hasattr(model, "n_jobs"):
+        model.n_jobs = 1
+
     return model, label_encoders, feature_names
 
 
