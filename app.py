@@ -1,8 +1,9 @@
 # ============================================================
 # ANALISIS RISIKO GANGGUAN TIDUR
-# RANDOM FOREST CLASSIFIER - MODEL B (TANPA DEMOGRAFI)
+# RANDOM FOREST CLASSIFIER - MODEL FINAL 8 FITUR
 # ============================================================
 import os
+from datetime import date, datetime, time, timedelta
 
 # Membatasi penggunaan thread agar stabil di Streamlit Cloud
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -14,6 +15,37 @@ import joblib
 import pandas as pd
 import streamlit as st
 
+
+EXPECTED_FEATURES = [
+    "sleep_duration_hrs",
+    "bmi",
+    "sleep_latency_mins",
+    "wake_episodes_per_night",
+    "screen_time_before_bed_mins",
+    "work_hours_that_day",
+    "weekend_sleep_diff_hrs",
+    "nap_duration_mins",
+]
+
+FEATURE_LABELS = {
+    "sleep_duration_hrs": "Durasi tidur hari kerja (jam)",
+    "bmi": "Indeks Massa Tubuh (BMI)",
+    "sleep_latency_mins": "Waktu untuk mulai tertidur (menit)",
+    "wake_episodes_per_night": "Frekuensi terbangun per malam",
+    "screen_time_before_bed_mins": "Jeda penggunaan gadget sebelum tidur (menit)",
+    "work_hours_that_day": "Lama bekerja/belajar (jam)",
+    "weekend_sleep_diff_hrs": "Selisih durasi tidur akhir pekan (jam)",
+    "nap_duration_mins": "Durasi tidur siang (menit)",
+}
+
+RESULT_LABELS = {
+    "healthy": "Risiko Rendah",
+    "mild": "Risiko Ringan",
+    "moderate": "Risiko Sedang",
+    "severe": "Risiko Tinggi",
+    "high": "Risiko Tinggi",
+}
+
 st.set_page_config(
     page_title="Analisis Risiko Gangguan Tidur",
     page_icon="🌙",
@@ -23,11 +55,16 @@ st.set_page_config(
 
 
 def load_css() -> None:
+    """Memuat CSS tambahan apabila file tersedia."""
     try:
         with open("style.css", encoding="utf-8") as css_file:
-            st.markdown(f"<style>{css_file.read()}</style>", unsafe_allow_html=True)
+            st.markdown(
+                f"<style>{css_file.read()}</style>",
+                unsafe_allow_html=True,
+            )
     except FileNotFoundError:
-        st.warning("File style.css tidak ditemukan. Aplikasi tetap dijalankan tanpa CSS khusus.")
+        # CSS bersifat opsional. Aplikasi tetap dapat berjalan tanpa file ini.
+        pass
 
 
 load_css()
@@ -35,59 +72,202 @@ load_css()
 
 @st.cache_resource
 def load_artifacts():
+    """Memuat model, label encoder, dan urutan fitur hasil pelatihan."""
+    loaded_model = joblib.load("sleep_disorder_rf.joblib")
+    loaded_encoders = joblib.load("label_encoders.joblib")
+    loaded_features = list(joblib.load("feature_names.joblib"))
 
-    model = joblib.load("sleep_disorder_rf.joblib")
-    label_encoders = joblib.load("label_encoders.joblib")
-    feature_names = joblib.load("feature_names.joblib")
+    # Membatasi penggunaan CPU saat deployment.
+    if hasattr(loaded_model, "n_jobs"):
+        loaded_model.n_jobs = 1
 
-    # Model disimpan dengan n_jobs=-1.
-    # Untuk deployment, batasi agar tidak memakai semua CPU.
-    if hasattr(model, "n_jobs"):
-        model.n_jobs = 1
-
-    return model, label_encoders, feature_names
+    return loaded_model, loaded_encoders, loaded_features
 
 
 try:
     model, label_encoders, feature_names = load_artifacts()
 except FileNotFoundError as error:
     st.error(
-        "Pastikan sleep_disorder_rf.joblib, label_encoders.joblib, "
-        "feature_names.joblib, dan style.css berada di folder yang sama dengan app.py."
+        "File model belum lengkap. Pastikan sleep_disorder_rf.joblib, "
+        "label_encoders.joblib, dan feature_names.joblib berada di folder "
+        "yang sama dengan app.py."
+    )
+    st.exception(error)
+    st.stop()
+except Exception as error:
+    st.error(
+        "Artefak model gagal dimuat. Pastikan file berasal dari proses "
+        "pelatihan terbaru dan versi library pada deployment sesuai."
     )
     st.exception(error)
     st.stop()
 
 
-def get_encoder_options(column_name: str, fallback: list[str]) -> list[str]:
-    if column_name in label_encoders:
-        return list(label_encoders[column_name].classes_)
-    return fallback
+# Mencegah aplikasi memakai model lama yang masih menggunakan banyak fitur.
+if len(feature_names) != 8 or set(feature_names) != set(EXPECTED_FEATURES):
+    st.error(
+        "feature_names.joblib tidak sesuai dengan model final 8 fitur. "
+        "Unggah ulang sleep_disorder_rf.joblib dan feature_names.joblib "
+        "yang dibuat setelah pelatihan ulang."
+    )
+    st.write("Fitur yang terbaca:", feature_names)
+    st.stop()
+
+if hasattr(model, "n_features_in_") and model.n_features_in_ != len(feature_names):
+    st.error(
+        "Jumlah fitur pada model tidak sama dengan jumlah fitur pada "
+        "feature_names.joblib. Gunakan artefak dari proses pelatihan yang sama."
+    )
+    st.stop()
 
 
-def encode_input(input_data: dict) -> dict:
-    encoded_data = input_data.copy()
-    for column_name, encoder in label_encoders.items():
-        if column_name == "sleep_disorder_risk":
-            continue
-        if column_name in encoded_data:
-            encoded_data[column_name] = encoder.transform(
-                [str(encoded_data[column_name])]
-            )[0]
-    return encoded_data
+def minutes_between(
+    start_time: time,
+    end_time: time,
+    *,
+    equal_means_zero: bool = False,
+) -> float:
+    """Menghitung selisih menit dan menangani pergantian hari."""
+    start_dt = datetime.combine(date.today(), start_time)
+    end_dt = datetime.combine(date.today(), end_time)
+
+    if end_dt < start_dt or (end_dt == start_dt and not equal_means_zero):
+        end_dt += timedelta(days=1)
+
+    return (end_dt - start_dt).total_seconds() / 60
+
+
+def calculate_step_one() -> tuple[dict, list[str]]:
+    """Menghitung fitur pada tahap pertama dan memvalidasi hasilnya."""
+    sleep_duration_hrs = minutes_between(
+        st.session_state.actual_sleep_time,
+        st.session_state.wake_time,
+    ) / 60
+
+    sleep_latency_mins = minutes_between(
+        st.session_state.bed_attempt_time,
+        st.session_state.actual_sleep_time,
+        equal_means_zero=True,
+    )
+
+    screen_time_before_bed_mins = minutes_between(
+        st.session_state.last_screen_time,
+        st.session_state.bed_attempt_time,
+        equal_means_zero=True,
+    )
+
+    errors: list[str] = []
+
+    if not 2 <= sleep_duration_hrs <= 16:
+        errors.append(
+            "Durasi tidur yang dihitung harus berada antara 2 dan 16 jam. "
+            "Periksa kembali waktu mulai tidur dan waktu bangun."
+        )
+
+    if not 0 <= sleep_latency_mins <= 300:
+        errors.append(
+            "Waktu untuk mulai tertidur harus berada antara 0 dan 300 menit. "
+            "Periksa kembali urutan waktunya."
+        )
+
+    if not 0 <= screen_time_before_bed_mins <= 720:
+        errors.append(
+            "Jeda penggunaan gadget sebelum tidur harus berada antara "
+            "0 dan 720 menit. Periksa kembali urutan waktunya."
+        )
+
+    values = {
+        "sleep_duration_hrs": round(sleep_duration_hrs, 2),
+        "sleep_latency_mins": round(sleep_latency_mins, 2),
+        "wake_episodes_per_night": int(st.session_state.wake_episodes),
+        "screen_time_before_bed_mins": round(
+            screen_time_before_bed_mins,
+            2,
+        ),
+        "work_hours_that_day": float(st.session_state.work_hours),
+    }
+
+    return values, errors
+
+
+def calculate_final_input() -> tuple[dict, list[str]]:
+    """Menggabungkan seluruh input dan menghitung delapan fitur model."""
+    step_one_values, errors = calculate_step_one()
+
+    height_m = float(st.session_state.height_cm) / 100
+    weight_kg = float(st.session_state.weight_kg)
+    bmi = weight_kg / (height_m**2)
+
+    weekend_duration_hrs = minutes_between(
+        st.session_state.weekend_sleep_time,
+        st.session_state.weekend_wake_time,
+    ) / 60
+
+    weekend_sleep_diff_hrs = abs(
+        weekend_duration_hrs - step_one_values["sleep_duration_hrs"]
+    )
+
+    if st.session_state.no_nap:
+        nap_duration_mins = 0.0
+    else:
+        nap_duration_mins = minutes_between(
+            st.session_state.nap_start_time,
+            st.session_state.nap_end_time,
+            equal_means_zero=True,
+        )
+
+    if not 10 <= bmi <= 80:
+        errors.append(
+            "BMI yang dihitung berada di luar rentang 10–80. "
+            "Periksa kembali tinggi dan berat badan."
+        )
+
+    if not 2 <= weekend_duration_hrs <= 16:
+        errors.append(
+            "Durasi tidur akhir pekan yang dihitung harus berada antara "
+            "2 dan 16 jam."
+        )
+
+    if not 0 <= weekend_sleep_diff_hrs <= 14:
+        errors.append(
+            "Selisih durasi tidur hari kerja dan akhir pekan tidak wajar. "
+            "Periksa kembali waktu tidur yang dimasukkan."
+        )
+
+    if not 0 <= nap_duration_mins <= 360:
+        errors.append(
+            "Durasi tidur siang harus berada antara 0 dan 360 menit."
+        )
+
+    final_input = {
+        **step_one_values,
+        "bmi": round(bmi, 2),
+        "weekend_sleep_diff_hrs": round(weekend_sleep_diff_hrs, 2),
+        "nap_duration_mins": round(nap_duration_mins, 2),
+    }
+
+    return final_input, errors
 
 
 def reset_prediction_form() -> None:
+    """Menghapus input sebelumnya dan kembali ke tahap pertama."""
     for key in list(st.session_state.keys()):
-        if key != "step":
-            del st.session_state[key]
+        del st.session_state[key]
     st.session_state.step = 1
+
+
+def decode_target(value):
+    """Mengembalikan label target asli apabila encoder tersedia."""
+    target_encoder = label_encoders.get("sleep_disorder_risk")
+    if target_encoder is None:
+        return str(value)
+    return str(target_encoder.inverse_transform([value])[0])
 
 
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/sleep.png", width=70)
     st.markdown("## Sleep Disorder AI")
-    st.caption("Random Forest Classifier — Model B")
+    st.caption("Random Forest — Model Final 8 Fitur")
     st.divider()
     menu = st.radio("Menu", ["🏠 Prediksi Risiko"])
     st.divider()
@@ -99,10 +279,11 @@ if menu == "🏠 Prediksi Risiko":
         """
         <div class="header">
             <h1>🌙 Analisis Risiko Gangguan Tidur</h1>
-            <h4>Random Forest Classification — Model B</h4>
+            <h4>Random Forest Classification — Model Final 8 Fitur</h4>
             <p>
-                Sistem klasifikasi tingkat risiko gangguan tidur berdasarkan
-                gaya hidup, pola tidur, dan kondisi kesehatan.
+                Sistem memperkirakan tingkat risiko gangguan tidur menggunakan
+                data waktu, durasi, jumlah kejadian, serta data fisik yang
+                dapat dimasukkan oleh pengguna tanpa penilaian berbentuk skala.
             </p>
         </div>
         """,
@@ -128,7 +309,7 @@ if menu == "🏠 Prediksi Risiko":
                 <p>
                     ✔️ Kategori risiko gangguan tidur<br>
                     ✔️ Probabilitas setiap kelas<br>
-                    ✔️ Interpretasi hasil prediksi
+                    ✔️ Ringkasan data yang digunakan model
                 </p>
             </div>
             """,
@@ -138,287 +319,269 @@ if menu == "🏠 Prediksi Risiko":
     if "step" not in st.session_state:
         st.session_state.step = 1
 
-    if st.session_state.step <= 3:
-        st.progress(st.session_state.step / 3)
+    if st.session_state.step <= 2:
+        st.progress(st.session_state.step / 2)
         st.markdown("<br>", unsafe_allow_html=True)
 
+    # ========================================================
+    # STEP 1: POLA TIDUR HARI KERJA
+    # ========================================================
     if st.session_state.step == 1:
         st.markdown(
             """
             <div class="form-card">
-                <h3>Step 1 dari 3</h3>
-                <h2>🏃 Data Gaya Hidup</h2>
-                <p>Silakan lengkapi informasi mengenai gaya hidup pengguna.</p>
+                <h3>Step 1 dari 2</h3>
+                <h2>😴 Pola Tidur Hari Kerja</h2>
+                <p>
+                    Masukkan waktu dan jumlah kejadian yang paling sering
+                    menggambarkan pola tidur pada hari kerja atau hari biasa.
+                </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
+
         col1, col2 = st.columns(2)
+
         with col1:
-            st.number_input("Jumlah Kafein yang Dikonsumsi Sebelum Tidur (mg)", min_value=0.0, value=100.0, step=10.0, key="caffeine")
-            st.number_input("Jumlah Alkohol yang Dikonsumsi Sebelum Tidur (Unit)", min_value=0.0, value=0.0, step=0.5, key="alcohol")
-            st.number_input("Durasi Penggunaan Gadget Sebelum Tidur (Menit)", min_value=0.0, value=60.0, step=5.0, key="screen")
-        with col2:
-            st.selectbox(
-                "Hari Terakhir Melakukan Olahraga",
-                get_encoder_options("exercise_day", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]),
-                key="exercise",
+            st.time_input(
+                "Waktu mulai mencoba tidur",
+                value=time(22, 30),
+                key="bed_attempt_time",
+                help="Waktu ketika Anda sudah berbaring dan mulai mencoba tidur.",
             )
-            st.number_input("Jumlah Langkah Kaki Hari Ini", min_value=0, value=5000, step=100, key="steps")
+            st.time_input(
+                "Perkiraan waktu benar-benar tertidur",
+                value=time(22, 45),
+                key="actual_sleep_time",
+            )
+            st.time_input(
+                "Waktu bangun",
+                value=time(6, 0),
+                key="wake_time",
+            )
+
+        with col2:
+            st.time_input(
+                "Waktu terakhir menggunakan ponsel/laptop sebelum tidur",
+                value=time(21, 45),
+                key="last_screen_time",
+            )
+            st.number_input(
+                "Berapa kali biasanya terbangun dalam satu malam?",
+                min_value=0,
+                max_value=30,
+                value=1,
+                step=1,
+                key="wake_episodes",
+            )
+            st.number_input(
+                "Berapa jam bekerja atau belajar dalam sehari?",
+                min_value=0.0,
+                max_value=24.0,
+                value=8.0,
+                step=0.5,
+                key="work_hours",
+            )
+
+        st.caption(
+            "Durasi tidur, waktu untuk mulai tertidur, dan jeda penggunaan "
+            "gadget akan dihitung otomatis oleh sistem."
+        )
 
         st.markdown("<br>", unsafe_allow_html=True)
         _, col_next = st.columns([4, 1])
         with col_next:
             if st.button("Selanjutnya ➜", use_container_width=True):
-                st.session_state.step = 2
-                st.rerun()
+                _, validation_errors = calculate_step_one()
+                if validation_errors:
+                    for message in validation_errors:
+                        st.error(message)
+                else:
+                    st.session_state.step = 2
+                    st.rerun()
 
+    # ========================================================
+    # STEP 2: DATA FISIK DAN POLA AKHIR PEKAN
+    # ========================================================
     elif st.session_state.step == 2:
         st.markdown(
             """
             <div class="form-card">
-                <h3>Step 2 dari 3</h3>
-                <h2>😴 Pola Tidur</h2>
-                <p>Silakan lengkapi informasi mengenai pola tidur pengguna.</p>
+                <h3>Step 2 dari 2</h3>
+                <h2>⚖️ Data Fisik dan Pola Akhir Pekan</h2>
+                <p>
+                    Masukkan tinggi, berat badan, waktu tidur akhir pekan,
+                    dan informasi tidur siang.
+                </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        col1, col2 = st.columns(2)
-        with col1:
-            st.number_input("Rata-rata Lama Tidur per Malam (Jam)", min_value=0.0, max_value=24.0, value=7.0, step=0.5, key="sleep_duration")
-            st.number_input("Nilai Kualitas Tidur (0–10)", min_value=0, max_value=10, value=7, key="sleep_quality")
-            st.number_input("Persentase Tidur REM (%)", min_value=0.0, max_value=100.0, value=20.0, step=0.1, key="rem")
-            st.number_input("Persentase Tidur nyenyak/Deep Sleep (%)", min_value=0.0, max_value=100.0, value=18.0, step=0.1, key="deep_sleep")
-            st.number_input("Lama Tidur Siang (Menit)", min_value=0.0, value=20.0, step=5.0, key="nap")
-        with col2:
-            st.number_input("Lama Waktu untuk Mulai Tidur (Menit)", min_value=0.0, value=15.0, step=1.0, key="latency")
-            st.number_input("Jumlah Terbangun Saat Tidur (Kali)", min_value=0, value=1, step=1, key="wake")
-            st.selectbox("Kebiasaan Waktu Tidur", get_encoder_options("chronotype", ["Pagi", "Normal", "Malam"]), key="chronotype")
-            st.number_input("Perbedaan Lama Tidur Saat Akhir Pekan (Jam)", value=1.0, step=0.5, key="weekend_sleep")
-            st.selectbox("Apakah Merasa Segar Setelah Bangun?", get_encoder_options("felt_rested", ["No", "Yes"]), key="felt_rested")
+
+        step_one_preview, _ = calculate_step_one()
+        preview_col1, preview_col2, preview_col3 = st.columns(3)
+        preview_col1.metric(
+            "Durasi tidur hari kerja",
+            f"{step_one_preview['sleep_duration_hrs']:.2f} jam",
+        )
+        preview_col2.metric(
+            "Waktu untuk tertidur",
+            f"{step_one_preview['sleep_latency_mins']:.0f} menit",
+        )
+        preview_col3.metric(
+            "Jeda gadget sebelum tidur",
+            f"{step_one_preview['screen_time_before_bed_mins']:.0f} menit",
+        )
 
         st.divider()
-        col_back, col_next = st.columns(2)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.number_input(
+                "Berat badan (kg)",
+                min_value=20.0,
+                max_value=300.0,
+                value=60.0,
+                step=0.5,
+                key="weight_kg",
+            )
+            st.number_input(
+                "Tinggi badan (cm)",
+                min_value=100.0,
+                max_value=250.0,
+                value=165.0,
+                step=0.5,
+                key="height_cm",
+            )
+            st.caption("BMI akan dihitung otomatis dari berat dan tinggi badan.")
+
+        with col2:
+            st.time_input(
+                "Waktu mulai tidur pada akhir pekan",
+                value=time(23, 30),
+                key="weekend_sleep_time",
+            )
+            st.time_input(
+                "Waktu bangun pada akhir pekan",
+                value=time(7, 30),
+                key="weekend_wake_time",
+            )
+            st.caption(
+                "Sistem menghitung selisih absolut antara durasi tidur "
+                "hari kerja dan akhir pekan."
+            )
+
+        st.divider()
+        st.checkbox(
+            "Saya tidak tidur siang",
+            value=False,
+            key="no_nap",
+        )
+
+        if not st.session_state.no_nap:
+            nap_col1, nap_col2 = st.columns(2)
+            with nap_col1:
+                st.time_input(
+                    "Waktu mulai tidur siang",
+                    value=time(13, 0),
+                    key="nap_start_time",
+                )
+            with nap_col2:
+                st.time_input(
+                    "Waktu selesai tidur siang",
+                    value=time(13, 30),
+                    key="nap_end_time",
+                )
+
+        st.divider()
+        col_back, col_predict = st.columns(2)
         with col_back:
-            if st.button("⬅ Kembali", use_container_width=True, key="back_step2"):
+            if st.button(
+                "⬅ Kembali",
+                use_container_width=True,
+                key="back_step2",
+            ):
                 st.session_state.step = 1
                 st.rerun()
-        with col_next:
-            if st.button("Selanjutnya ➜", use_container_width=True, key="next_step2"):
-                st.session_state.step = 3
-                st.rerun()
 
+        with col_predict:
+            if st.button(
+                "🔍 Lakukan Prediksi",
+                use_container_width=True,
+                key="predict_button",
+            ):
+                final_input, validation_errors = calculate_final_input()
+
+                if validation_errors:
+                    for message in validation_errors:
+                        st.error(message)
+                else:
+                    st.session_state.final_input = final_input
+                    st.session_state.step = 3
+                    st.rerun()
+
+    # ========================================================
+    # STEP 3: HASIL PREDIKSI
+    # ========================================================
     elif st.session_state.step == 3:
-        st.markdown(
-            """
-            <div class="form-card">
-                <h3>Step 3 dari 3</h3>
-                <h2>❤️ Kondisi Kesehatan</h2>
-                <p>Lengkapi informasi kesehatan dan kondisi pendukung tidur.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        col1, col2 = st.columns(2)
-        with col1:
-            st.number_input("Indeks Massa Tubuh (BMI)", min_value=5.0, max_value=80.0, value=22.5, step=0.1, key="bmi")
-            st.number_input("Tingkat Stres (Skala 0–10)", min_value=0, max_value=10, value=5, key="stress")
-            st.selectbox("Kondisi Kesehatan Mental Saat Ini", get_encoder_options("mental_health_condition", ["None"]), key="mental")
-            st.number_input("Detak Jantung Saat Istirahat (BPM)", min_value=20, max_value=250, value=72, key="heart")
-            st.selectbox("Apakah Menggunakan Obat Tidur?", get_encoder_options("sleep_aid_used", ["No", "Yes"]), key="sleep_aid")
-        with col2:
-            st.selectbox("Apakah Bekerja dengan Sistem Shift?", get_encoder_options("shift_work", ["No", "Yes"]), key="shift_work")
-            st.number_input("Suhu Kamar Saat Tidur (°C)", min_value=0.0, max_value=50.0, value=24.0, step=0.5, key="room")
-            st.number_input("Lama Jam Kerja Hari Ini (Jam)", min_value=0.0, max_value=24.0, value=8.0, step=0.5, key="work")
-            st.number_input("Skor Kemampuan Konsentrasi (0–100)", min_value=0, max_value=100, value=75, key="cognitive")
+        if "final_input" not in st.session_state:
+            st.session_state.step = 1
+            st.rerun()
 
-        if "season" in feature_names or "day_type" in feature_names:
-            st.divider()
-            st.markdown(
-                """
-                <div class="form-card">
-                    <h2>🌙 Informasi Tambahan</h2>
-                    <p>Lengkapi informasi tambahan yang digunakan oleh model.</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            extra_col1, extra_col2 = st.columns(2)
-            with extra_col1:
-                if "season" in feature_names:
-                    st.selectbox("Musim", get_encoder_options("season", ["Summer"]), key="season")
-            with extra_col2:
-                if "day_type" in feature_names:
-                    st.selectbox("Jenis Hari", get_encoder_options("day_type", ["Weekday"]), key="day_type")
-
-        st.divider()
-        col_back, col_next = st.columns(2)
-        with col_back:
-            if st.button("⬅ Kembali", use_container_width=True, key="back_step3"):
-                st.session_state.step = 2
-                st.rerun()
-        with col_next:
-            if st.button("🔍 Lakukan Prediksi", use_container_width=True):
-                st.session_state.step = 4
-                st.rerun()
-
-    elif st.session_state.step == 4:
         st.markdown(
             """
             <div class="form-card">
                 <h2>🎯 Hasil Prediksi</h2>
-                <p>Berikut merupakan hasil analisis risiko gangguan tidur berdasarkan data yang telah dimasukkan.</p>
+                <p>
+                    Berikut merupakan hasil analisis risiko gangguan tidur
+                    berdasarkan delapan fitur yang telah dihitung.
+                </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        input_data = {
-            "caffeine_mg_before_bed": st.session_state.get("caffeine", 100.0),
-            "alcohol_units_before_bed": st.session_state.get("alcohol", 0.0),
-            "screen_time_before_bed_mins": st.session_state.get("screen", 60.0),
-            "exercise_day": st.session_state.get("exercise", "Monday"),
-            "steps_that_day": st.session_state.get("steps", 5000),
-            "sleep_duration_hrs": st.session_state.get("sleep_duration", 7.0),
-            "sleep_quality_score": st.session_state.get("sleep_quality", 7),
-            "rem_percentage": st.session_state.get("rem", 20.0),
-            "deep_sleep_percentage": st.session_state.get("deep_sleep", 18.0),
-            "sleep_latency_mins": st.session_state.get("latency", 15.0),
-            "wake_episodes_per_night": st.session_state.get("wake", 1),
-            "nap_duration_mins": st.session_state.get("nap", 20.0),
-            "chronotype": st.session_state.get("chronotype", "Morning"),
-            "weekend_sleep_diff_hrs": st.session_state.get("weekend_sleep", 1.0),
-            "felt_rested": st.session_state.get("felt_rested", "Yes"),
-            "bmi": st.session_state.get("bmi", 22.5),
-            "stress_score": st.session_state.get("stress", 5),
-            "mental_health_condition": st.session_state.get("mental", "None"),
-            "heart_rate_resting_bpm": st.session_state.get("heart", 72),
-            "sleep_aid_used": st.session_state.get("sleep_aid", "No"),
-            "shift_work": st.session_state.get("shift_work", "No"),
-            "room_temperature_celsius": st.session_state.get("room", 24.0),
-            "work_hours_that_day": st.session_state.get("work", 8.0),
-            "cognitive_performance_score": st.session_state.get("cognitive", 75),
-            "season": st.session_state.get("season", "Summer"),
-            "day_type": st.session_state.get("day_type", "Weekday"),
-        }
+        raw_model_input = st.session_state.final_input
 
-        raw_model_input = {feature: input_data[feature] for feature in feature_names if feature in input_data}
-        missing_features = [feature for feature in feature_names if feature not in raw_model_input]
-        if missing_features:
-            st.error("Input aplikasi belum menyediakan fitur berikut: " + ", ".join(missing_features))
-            st.stop()
-
-        # =====================================================
-        # ENCODING INPUT
-        # =====================================================
-
-        try:
-            encoded_input = encode_input(raw_model_input)
-
-        except ValueError as error:
-            st.error(str(error))
-            st.stop()
-
-
-        # =====================================================
-        # ENCODING KHUSUS EXERCISE DAY
-        # =====================================================
-
-        exercise_map = {
-            "Monday": 0,
-            "Tuesday": 1,
-            "Wednesday": 2,
-            "Thursday": 3,
-            "Friday": 4,
-            "Saturday": 5,
-            "Sunday": 6
-        }
-
-        if "exercise_day" in encoded_input:
-            value = encoded_input["exercise_day"]
-
-            if isinstance(value, str):
-                encoded_input["exercise_day"] = exercise_map[value]
-
-
-        # =====================================================
-        # ENCODING KHUSUS YES / NO
-        # =====================================================
-
-        yes_no_map = {
-            "No": 0,
-            "Yes": 1
-        }
-
-        yes_no_columns = [
-            "sleep_aid_used",
-            "shift_work",
-            "felt_rested"
+        missing_features = [
+            feature
+            for feature in feature_names
+            if feature not in raw_model_input
         ]
+        if missing_features:
+            st.error(
+                "Input aplikasi belum menyediakan fitur berikut: "
+                + ", ".join(missing_features)
+            )
+            st.stop()
 
-        for column in yes_no_columns:
-
-            if column in encoded_input:
-
-                value = encoded_input[column]
-
-                if isinstance(value, str):
-
-                    if value not in yes_no_map:
-                        st.error(
-                            f"Nilai pada {column} tidak dikenali: {value}"
-                        )
-                        st.stop()
-
-                    encoded_input[column] = yes_no_map[value]
-
-
-        # =====================================================
-        # MEMBUAT DATAFRAME SESUAI URUTAN FITUR MODEL
-        # =====================================================
-
-        X = pd.DataFrame([encoded_input])
-
-        X = X[feature_names]
+        # Menyusun dataframe sesuai urutan fitur yang tersimpan bersama model.
+        X = pd.DataFrame(
+            [{feature: raw_model_input[feature] for feature in feature_names}],
+            columns=feature_names,
+        ).astype(float)
 
         try:
-            X = X.astype(float)
-
-        except ValueError as error:
-
+            prediction = model.predict(X)[0]
+            probability = model.predict_proba(X)[0]
+        except Exception as error:
             st.error(
-                "Masih terdapat input kategorikal yang belum dikonversi menjadi angka."
+                "Prediksi gagal. Pastikan model dan feature_names.joblib "
+                "berasal dari proses pelatihan delapan fitur yang sama."
             )
-
-            # Menampilkan hanya fitur yang masih berupa teks
-            categorical_columns = X.select_dtypes(
-                include=["object"]
-            ).columns.tolist()
-
-            st.write("Kolom yang masih berupa teks:", categorical_columns)
-            st.dataframe(X[categorical_columns])
-
             st.exception(error)
             st.stop()
 
+        original_result = decode_target(prediction)
+        result_key = original_result.strip().lower()
+        display_result = RESULT_LABELS.get(result_key, original_result)
 
-        # =====================================================
-        # PREDIKSI MODEL
-        # =====================================================
-
-        prediction = model.predict(X)[0]
-        probability = model.predict_proba(X)[0]
-
-        target_encoder = label_encoders["sleep_disorder_risk"]
-        hasil = target_encoder.inverse_transform([prediction])[0]
-        result_name = str(hasil).lower()
-
-        if result_name == "healthy":
+        if result_key == "healthy":
             warna, icon = "#22C55E", "🟢"
-        elif result_name == "mild":
+        elif result_key == "mild":
             warna, icon = "#FACC15", "🟡"
-        elif result_name == "moderate":
+        elif result_key == "moderate":
             warna, icon = "#FB923C", "🟠"
         else:
             warna, icon = "#EF4444", "🔴"
@@ -426,38 +589,83 @@ if menu == "🏠 Prediksi Risiko":
         st.markdown(
             f"""
             <div style="background:white;padding:25px;border-radius:18px;border-left:8px solid {warna};box-shadow:0px 6px 18px rgba(0,0,0,.08);margin-bottom:25px;">
-                <h2 style="color:{warna};margin-bottom:10px;">{icon} {hasil}</h2>
+                <h2 style="color:{warna};margin-bottom:10px;">{icon} {display_result}</h2>
                 <p style="font-size:17px;color:#5B6475;line-height:1.8;">
-                    Berdasarkan hasil klasifikasi Random Forest Model B, pengguna termasuk dalam kategori risiko <b>{hasil}</b>.
+                    Berdasarkan klasifikasi Random Forest menggunakan delapan
+                    fitur terpilih, pengguna termasuk dalam kategori
+                    <b>{display_result}</b>.
                 </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        st.markdown('<h2 class="prediction-section">📈 Probabilitas Setiap Kategori</h2>', unsafe_allow_html=True)
-        class_names = target_encoder.inverse_transform(model.classes_)
+        st.markdown(
+            '<h2 class="prediction-section">📈 Probabilitas Setiap Kategori</h2>',
+            unsafe_allow_html=True,
+        )
+
+        class_names = [decode_target(class_value) for class_value in model.classes_]
         for class_name, score in zip(class_names, probability):
-            st.markdown(f'<div class="prediction-label">{class_name}</div>', unsafe_allow_html=True)
+            class_key = class_name.strip().lower()
+            class_display = RESULT_LABELS.get(class_key, class_name)
+            st.markdown(
+                f'<div class="prediction-label">{class_display}</div>',
+                unsafe_allow_html=True,
+            )
             st.progress(float(score))
-            st.markdown(f'<div class="prediction-percent">{score * 100:.2f}%</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="prediction-percent">{score * 100:.2f}%</div>',
+                unsafe_allow_html=True,
+            )
 
         st.divider()
         with st.expander("📋 Lihat Data yang Digunakan Model"):
-            st.dataframe(pd.DataFrame([raw_model_input], columns=feature_names), use_container_width=True)
+            display_data = pd.DataFrame(
+                {
+                    "Fitur": [FEATURE_LABELS[feature] for feature in feature_names],
+                    "Nilai": [raw_model_input[feature] for feature in feature_names],
+                }
+            )
+            st.dataframe(
+                display_data,
+                use_container_width=True,
+                hide_index=True,
+            )
 
-        st.markdown('<h2 class="prediction-section">💡 Interpretasi</h2>', unsafe_allow_html=True)
-        if result_name == "healthy":
-            st.success("Pengguna memiliki risiko gangguan tidur yang rendah. Pertahankan pola tidur, gaya hidup, dan kondisi kesehatan yang baik.")
-        elif result_name == "mild":
-            st.warning("Pengguna mulai menunjukkan beberapa faktor risiko. Perbaiki pola tidur dan kurangi faktor risiko.")
-        elif result_name == "moderate":
-            st.warning("Risiko gangguan tidur berada pada tingkat sedang. Perhatikan kualitas tidur, tingkat stres, dan gaya hidup secara lebih serius.")
+        st.markdown(
+            '<h2 class="prediction-section">💡 Interpretasi</h2>',
+            unsafe_allow_html=True,
+        )
+
+        if result_key == "healthy":
+            st.success(
+                "Model memperkirakan risiko gangguan tidur yang rendah. "
+                "Pertahankan jadwal tidur dan kebiasaan harian yang baik."
+            )
+        elif result_key == "mild":
+            st.warning(
+                "Model memperkirakan risiko ringan. Perhatikan keteraturan "
+                "waktu tidur, penggunaan gadget, dan durasi tidur."
+            )
+        elif result_key == "moderate":
+            st.warning(
+                "Model memperkirakan risiko sedang. Evaluasi pola tidur dan "
+                "pertimbangkan konsultasi apabila keluhan berlangsung terus."
+            )
         else:
-            st.error("Risiko gangguan tidur berada pada tingkat tinggi. Disarankan berkonsultasi dengan tenaga kesehatan untuk evaluasi lebih lanjut.")
+            st.error(
+                "Model memperkirakan risiko tinggi. Pertimbangkan berkonsultasi "
+                "dengan tenaga kesehatan untuk evaluasi lebih lanjut."
+            )
 
-        st.caption("Hasil aplikasi merupakan prediksi model dan bukan diagnosis medis.")
+        st.caption(
+            "Hasil aplikasi merupakan prediksi model, bukan diagnosis medis. "
+            "Probabilitas menunjukkan keyakinan model terhadap kelas prediksi, "
+            "bukan kepastian kondisi kesehatan."
+        )
         st.divider()
+
         if st.button("🔄 Prediksi Lagi", use_container_width=True):
             reset_prediction_form()
             st.rerun()
