@@ -39,14 +39,14 @@ FEATURE_LABELS = {
 }
 
 RESULT_LABELS = {
-    "healthy": "Risiko Rendah",
-    "mild": "Risiko Ringan",
-    "moderate": "Risiko Sedang",
-    "severe": "Risiko Tinggi",
-    "high": "Risiko Tinggi",
+    "healthy": "Risiko Gangguan Tidur Rendah",
+    "mild": "Risiko Gangguan Tidur Ringan",
+    "moderate": "Risiko Gangguan Tidur Sedang",
+    "severe": "Risiko Gangguan Tidur Tinggi",
+    "high": "Risiko Gangguan Tidur Tinggi",
 }
 
-APP_VERSION = "input-flex-v5-2026-07-20"
+APP_VERSION = "readability-v6-2026-07-20"
 
 st.set_page_config(
     page_title="Analisis Risiko Gangguan Tidur",
@@ -70,6 +70,49 @@ def load_css() -> None:
 
 
 load_css()
+
+# CSS tambahan untuk memastikan teks penting tetap terbaca meskipun style.css
+# menggunakan warna teks yang terlalu terang. Diletakkan setelah load_css()
+# agar aturan ini menjadi prioritas terakhir.
+st.markdown(
+    """
+    <style>
+    /* Teks checkbox, termasuk "Saya tidak tidur siang" */
+    div[data-testid="stCheckbox"] label,
+    div[data-testid="stCheckbox"] label p,
+    div[data-testid="stCheckbox"] span {
+        color: #0B1F44 !important;
+        opacity: 1 !important;
+        font-weight: 600 !important;
+    }
+
+    /* Kotak centang dan tanda centang dibuat lebih tegas */
+    div[data-testid="stCheckbox"] input + div {
+        border-color: #0B1F44 !important;
+    }
+    div[data-testid="stCheckbox"] input:checked + div {
+        background-color: #0B1F44 !important;
+        border-color: #0B1F44 !important;
+    }
+
+    /* Seluruh teks di kotak success, warning, error, dan info */
+    div[data-testid="stAlert"],
+    div[data-testid="stAlert"] p,
+    div[data-testid="stAlert"] li,
+    div[data-testid="stAlert"] strong {
+        color: #0B1F44 !important;
+        opacity: 1 !important;
+    }
+
+    /* Catatan di bawah hasil prediksi */
+    div[data-testid="stCaptionContainer"] p {
+        color: #334155 !important;
+        opacity: 1 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 @st.cache_resource
@@ -656,9 +699,9 @@ if menu == "🏠 Prediksi Risiko":
             <div style="background:white;padding:25px;border-radius:18px;border-left:8px solid {warna};box-shadow:0px 6px 18px rgba(0,0,0,.08);margin-bottom:25px;">
                 <h2 style="color:{warna};margin-bottom:10px;">{icon} {display_result}</h2>
                 <p style="font-size:17px;color:#5B6475;line-height:1.8;">
-                    Berdasarkan klasifikasi Random Forest menggunakan delapan
-                    fitur terpilih, pengguna termasuk dalam kategori
-                    <b>{display_result}</b>.
+                    Berdasarkan delapan data pola tidur dan kebiasaan harian
+                    yang dimasukkan, model memperkirakan hasil Anda berada pada
+                    kategori <b>{display_result}</b>.
                 </p>
             </div>
             """,
@@ -699,29 +742,50 @@ if menu == "🏠 Prediksi Risiko":
             )
 
         st.markdown(
-            '<h2 class="prediction-section">💡 Interpretasi</h2>',
+            '<h2 class="prediction-section">💡 Apa Arti Hasil Ini?</h2>',
             unsafe_allow_html=True,
         )
 
         if result_key == "healthy":
             st.success(
-                "Model memperkirakan risiko gangguan tidur yang rendah. "
-                "Pertahankan jadwal tidur dan kebiasaan harian yang baik."
+                "**Risiko gangguan tidur rendah.** Berdasarkan delapan data yang "
+                "dimasukkan, pola Anda lebih banyak menyerupai kelompok dengan "
+                "risiko rendah pada data pelatihan model. Pertahankan waktu tidur "
+                "dan bangun yang teratur, durasi tidur yang cukup, serta batasi "
+                "penggunaan gadget menjelang tidur. Apabila Anda tetap sering "
+                "sulit tidur, terbangun berulang kali, atau sangat mengantuk pada "
+                "siang hari, pertimbangkan berkonsultasi dengan tenaga kesehatan."
             )
         elif result_key == "mild":
             st.warning(
-                "Model memperkirakan risiko ringan. Perhatikan keteraturan "
-                "waktu tidur, penggunaan gadget, dan durasi tidur."
+                "**Risiko gangguan tidur ringan.** Artinya, beberapa pola pada "
+                "data yang dimasukkan mulai menyerupai karakteristik kelompok yang "
+                "memiliki gangguan tidur, tetapi tingkat risikonya belum termasuk "
+                "sedang atau tinggi. Perhatikan keteraturan waktu tidur dan bangun, "
+                "cukupkan durasi tidur, kurangi penggunaan gadget sebelum tidur, "
+                "dan amati seberapa sering Anda terbangun pada malam hari. Jika "
+                "keluhan terjadi berulang atau mulai mengganggu aktivitas, "
+                "pertimbangkan konsultasi dengan tenaga kesehatan."
             )
         elif result_key == "moderate":
             st.warning(
-                "Model memperkirakan risiko sedang. Evaluasi pola tidur dan "
-                "pertimbangkan konsultasi apabila keluhan berlangsung terus."
+                "**Risiko gangguan tidur sedang.** Beberapa pola tidur dan kebiasaan "
+                "harian yang dimasukkan cukup menyerupai kelompok dengan risiko "
+                "gangguan tidur sedang pada data pelatihan. Sebaiknya evaluasi "
+                "jadwal tidur, durasi tidur, penggunaan gadget, tidur siang, dan "
+                "frekuensi terbangun. Catat pola tidur selama beberapa hari dan "
+                "pertimbangkan berkonsultasi dengan tenaga kesehatan apabila "
+                "keluhan menetap atau mengganggu kegiatan sehari-hari."
             )
         else:
             st.error(
-                "Model memperkirakan risiko tinggi. Pertimbangkan berkonsultasi "
-                "dengan tenaga kesehatan untuk evaluasi lebih lanjut."
+                "**Risiko gangguan tidur tinggi.** Pola data yang dimasukkan banyak "
+                "menyerupai kelompok dengan risiko tinggi pada data pelatihan model. "
+                "Hasil ini bukan diagnosis, tetapi menjadi tanda bahwa pola tidur "
+                "perlu diperhatikan lebih serius. Disarankan berkonsultasi dengan "
+                "tenaga kesehatan, terutama apabila Anda mengalami sulit tidur "
+                "berkepanjangan, sering terbangun, mendengkur keras, terbangun "
+                "seperti kehabisan napas, atau mengantuk berat pada siang hari."
             )
 
         st.caption(
