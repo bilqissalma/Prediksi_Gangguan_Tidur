@@ -46,7 +46,7 @@ RESULT_LABELS = {
     "high": "Risiko Tinggi",
 }
 
-APP_VERSION = "session-fix-v4-2026-07-20"
+APP_VERSION = "input-flex-v5-2026-07-20"
 
 st.set_page_config(
     page_title="Analisis Risiko Gangguan Tidur",
@@ -367,17 +367,20 @@ if menu == "🏠 Prediksi Risiko":
                 "Waktu mulai mencoba tidur",
                 value=saved_step_one.get("bed_attempt_time", time(22, 30)),
                 key="bed_attempt_time",
-                help="Waktu ketika Anda sudah berbaring dan mulai mencoba tidur.",
+                step=timedelta(minutes=1),
+                help="Waktu ketika Anda sudah berbaring dan mulai mencoba tidur. Waktu dapat dipilih per menit.",
             )
             st.time_input(
                 "Perkiraan waktu benar-benar tertidur",
                 value=saved_step_one.get("actual_sleep_time", time(22, 45)),
                 key="actual_sleep_time",
+                step=timedelta(minutes=1),
             )
             st.time_input(
                 "Waktu bangun",
                 value=saved_step_one.get("wake_time", time(6, 0)),
                 key="wake_time",
+                step=timedelta(minutes=1),
             )
 
         with col2:
@@ -385,6 +388,7 @@ if menu == "🏠 Prediksi Risiko":
                 "Waktu terakhir menggunakan ponsel/laptop sebelum tidur",
                 value=saved_step_one.get("last_screen_time", time(21, 45)),
                 key="last_screen_time",
+                step=timedelta(minutes=1),
             )
             st.number_input(
                 "Berapa kali biasanya terbangun dalam satu malam?",
@@ -399,13 +403,15 @@ if menu == "🏠 Prediksi Risiko":
                 min_value=0.0,
                 max_value=24.0,
                 value=float(saved_step_one.get("work_hours", 8.0)),
-                step=0.5,
+                step=0.1,
+                format="%.1f",
                 key="work_hours",
             )
 
         st.caption(
             "Durasi tidur, waktu untuk mulai tertidur, dan jeda penggunaan "
-            "gadget akan dihitung otomatis oleh sistem."
+            "gadget akan dihitung otomatis oleh sistem. Seluruh input waktu "
+            "dapat dipilih dengan ketelitian satu menit."
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -493,7 +499,8 @@ if menu == "🏠 Prediksi Risiko":
                 min_value=20.0,
                 max_value=300.0,
                 value=60.0,
-                step=0.5,
+                step=0.1,
+                format="%.1f",
                 key="weight_kg",
             )
             st.number_input(
@@ -501,21 +508,27 @@ if menu == "🏠 Prediksi Risiko":
                 min_value=100.0,
                 max_value=250.0,
                 value=165.0,
-                step=0.5,
+                step=0.1,
+                format="%.1f",
                 key="height_cm",
             )
-            st.caption("BMI akan dihitung otomatis dari berat dan tinggi badan.")
+            st.caption(
+                "BMI akan dihitung otomatis dari berat dan tinggi badan. "
+                "Berat dan tinggi dapat dimasukkan dengan ketelitian 0,1."
+            )
 
         with col2:
             st.time_input(
                 "Waktu mulai tidur pada akhir pekan",
                 value=time(23, 30),
                 key="weekend_sleep_time",
+                step=timedelta(minutes=1),
             )
             st.time_input(
                 "Waktu bangun pada akhir pekan",
                 value=time(7, 30),
                 key="weekend_wake_time",
+                step=timedelta(minutes=1),
             )
             st.caption(
                 "Sistem menghitung selisih absolut antara durasi tidur "
@@ -536,12 +549,14 @@ if menu == "🏠 Prediksi Risiko":
                     "Waktu mulai tidur siang",
                     value=time(13, 0),
                     key="nap_start_time",
+                    step=timedelta(minutes=1),
                 )
             with nap_col2:
                 st.time_input(
                     "Waktu selesai tidur siang",
                     value=time(13, 30),
                     key="nap_end_time",
+                    step=timedelta(minutes=1),
                 )
 
         st.divider()
