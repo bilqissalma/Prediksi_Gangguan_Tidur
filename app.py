@@ -46,6 +46,8 @@ RESULT_LABELS = {
     "high": "Risiko Tinggi",
 }
 
+APP_VERSION = "session-fix-v4-2026-07-20"
+
 st.set_page_config(
     page_title="Analisis Risiko Gangguan Tidur",
     page_icon="🌙",
@@ -137,22 +139,31 @@ def minutes_between(
     return (end_dt - start_dt).total_seconds() / 60
 
 
-def calculate_step_one() -> tuple[dict, list[str]]:
-    """Menghitung fitur pada tahap pertama dan memvalidasi hasilnya."""
+def calculate_step_one(raw_input: dict | None = None) -> tuple[dict, list[str]]:
+    """Menghitung fitur tahap pertama dari salinan input yang permanen."""
+    if raw_input is None:
+        raw_input = st.session_state.get("step_one_raw")
+
+    if not raw_input:
+        return {}, [
+            "Data pada Step 1 tidak ditemukan. Silakan kembali dan isi "
+            "kembali pola tidur hari kerja."
+        ]
+
     sleep_duration_hrs = minutes_between(
-        st.session_state.actual_sleep_time,
-        st.session_state.wake_time,
+        raw_input["actual_sleep_time"],
+        raw_input["wake_time"],
     ) / 60
 
     sleep_latency_mins = minutes_between(
-        st.session_state.bed_attempt_time,
-        st.session_state.actual_sleep_time,
+        raw_input["bed_attempt_time"],
+        raw_input["actual_sleep_time"],
         equal_means_zero=True,
     )
 
     screen_time_before_bed_mins = minutes_between(
-        st.session_state.last_screen_time,
-        st.session_state.bed_attempt_time,
+        raw_input["last_screen_time"],
+        raw_input["bed_attempt_time"],
         equal_means_zero=True,
     )
 
@@ -179,12 +190,12 @@ def calculate_step_one() -> tuple[dict, list[str]]:
     values = {
         "sleep_duration_hrs": round(sleep_duration_hrs, 2),
         "sleep_latency_mins": round(sleep_latency_mins, 2),
-        "wake_episodes_per_night": int(st.session_state.wake_episodes),
+        "wake_episodes_per_night": int(raw_input["wake_episodes"]),
         "screen_time_before_bed_mins": round(
             screen_time_before_bed_mins,
             2,
         ),
-        "work_hours_that_day": float(st.session_state.work_hours),
+        "work_hours_that_day": float(raw_input["work_hours"]),
     }
 
     return values, errors
@@ -192,8 +203,14 @@ def calculate_step_one() -> tuple[dict, list[str]]:
 
 def calculate_final_input() -> tuple[dict, list[str]]:
     """Menggabungkan seluruh input dan menghitung delapan fitur model."""
-    step_one_values, errors = calculate_step_one()
+    step_one_values = st.session_state.get("step_one_values")
+    if not step_one_values:
+        return {}, [
+            "Data Step 1 tidak tersedia. Silakan kembali ke Step 1 dan isi "
+            "kembali data pola tidur hari kerja."
+        ]
 
+    errors: list[str] = []
     height_m = float(st.session_state.height_cm) / 100
     weight_kg = float(st.session_state.weight_kg)
     bmi = weight_kg / (height_m**2)
@@ -268,6 +285,7 @@ with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/sleep.png", width=70)
     st.markdown("## Sleep Disorder AI")
     st.caption("Random Forest — Model Final 8 Fitur")
+    st.caption(f"Versi aplikasi: {APP_VERSION}")
     st.divider()
     menu = st.radio("Menu", ["🏠 Prediksi Risiko"])
     st.divider()
@@ -341,37 +359,38 @@ if menu == "🏠 Prediksi Risiko":
             unsafe_allow_html=True,
         )
 
+        saved_step_one = st.session_state.get("step_one_raw", {})
         col1, col2 = st.columns(2)
 
         with col1:
             st.time_input(
                 "Waktu mulai mencoba tidur",
-                value=time(22, 30),
+                value=saved_step_one.get("bed_attempt_time", time(22, 30)),
                 key="bed_attempt_time",
                 help="Waktu ketika Anda sudah berbaring dan mulai mencoba tidur.",
             )
             st.time_input(
                 "Perkiraan waktu benar-benar tertidur",
-                value=time(22, 45),
+                value=saved_step_one.get("actual_sleep_time", time(22, 45)),
                 key="actual_sleep_time",
             )
             st.time_input(
                 "Waktu bangun",
-                value=time(6, 0),
+                value=saved_step_one.get("wake_time", time(6, 0)),
                 key="wake_time",
             )
 
         with col2:
             st.time_input(
                 "Waktu terakhir menggunakan ponsel/laptop sebelum tidur",
-                value=time(21, 45),
+                value=saved_step_one.get("last_screen_time", time(21, 45)),
                 key="last_screen_time",
             )
             st.number_input(
                 "Berapa kali biasanya terbangun dalam satu malam?",
                 min_value=0,
                 max_value=30,
-                value=1,
+                value=int(saved_step_one.get("wake_episodes", 1)),
                 step=1,
                 key="wake_episodes",
             )
@@ -379,7 +398,7 @@ if menu == "🏠 Prediksi Risiko":
                 "Berapa jam bekerja atau belajar dalam sehari?",
                 min_value=0.0,
                 max_value=24.0,
-                value=8.0,
+                value=float(saved_step_one.get("work_hours", 8.0)),
                 step=0.5,
                 key="work_hours",
             )
@@ -393,11 +412,34 @@ if menu == "🏠 Prediksi Risiko":
         _, col_next = st.columns([4, 1])
         with col_next:
             if st.button("Selanjutnya ➜", use_container_width=True):
-                _, validation_errors = calculate_step_one()
+                step_one_raw = {
+                    "bed_attempt_time": st.session_state.get(
+                        "bed_attempt_time", time(22, 30)
+                    ),
+                    "actual_sleep_time": st.session_state.get(
+                        "actual_sleep_time", time(22, 45)
+                    ),
+                    "wake_time": st.session_state.get(
+                        "wake_time", time(6, 0)
+                    ),
+                    "last_screen_time": st.session_state.get(
+                        "last_screen_time", time(21, 45)
+                    ),
+                    "wake_episodes": st.session_state.get("wake_episodes", 1),
+                    "work_hours": st.session_state.get("work_hours", 8.0),
+                }
+
+                step_one_values, validation_errors = calculate_step_one(
+                    step_one_raw
+                )
                 if validation_errors:
                     for message in validation_errors:
                         st.error(message)
                 else:
+                    # Simpan ke key permanen. Key widget dapat dibersihkan
+                    # Streamlit ketika Step 1 tidak lagi dirender.
+                    st.session_state.step_one_raw = step_one_raw
+                    st.session_state.step_one_values = step_one_values
                     st.session_state.step = 2
                     st.rerun()
 
@@ -419,7 +461,15 @@ if menu == "🏠 Prediksi Risiko":
             unsafe_allow_html=True,
         )
 
-        step_one_preview, _ = calculate_step_one()
+        step_one_preview = st.session_state.get("step_one_values")
+        if not step_one_preview:
+            st.warning(
+                "Data Step 1 tidak ditemukan pada sesi ini. "
+                "Aplikasi akan kembali ke Step 1."
+            )
+            st.session_state.step = 1
+            st.rerun()
+
         preview_col1, preview_col2, preview_col3 = st.columns(3)
         preview_col1.metric(
             "Durasi tidur hari kerja",
