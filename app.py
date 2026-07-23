@@ -398,12 +398,7 @@ if menu == "🏠 Prediksi Risiko":
                 key="actual_sleep_time",
                 step=timedelta(minutes=1),
             )
-            st.time_input(
-                "Waktu bangun",
-                value=saved_step_one.get("wake_time", time(6, 0)),
-                key="wake_time",
-                step=timedelta(minutes=1),
-            )
+
 
         with col2:
 
@@ -414,6 +409,12 @@ if menu == "🏠 Prediksi Risiko":
                 value=int(saved_step_one.get("wake_episodes", 1)),
                 step=1,
                 key="wake_episodes",
+            )
+            st.time_input(
+                "Waktu bangun",
+                value=saved_step_one.get("wake_time", time(6, 0)),
+                key="wake_time",
+                step=timedelta(minutes=1),
             )
 
 
@@ -502,6 +503,11 @@ if menu == "🏠 Prediksi Risiko":
         col1, col2 = st.columns(2)
 
         with col1:
+            st.slider(
+                "Tingkat Stres",
+                1, 10, 5,
+                key="stress_score"
+            )
             st.number_input(
                 "Berat badan (kg)",
                 min_value=20.0,
@@ -544,12 +550,6 @@ if menu == "🏠 Prediksi Risiko":
                 100,
                 80,
                 key="cognitive_performance_score"
-            )
-
-            st.slider(
-                "Tingkat Stres",
-                1, 10, 5,
-                key="stress_score"
             )
 
         st.divider()
