@@ -486,18 +486,7 @@ if menu == "🏠 Prediksi Risiko":
             st.rerun()
 
         preview_col1, preview_col2, preview_col3 = st.columns(3)
-        preview_col1.metric(
-            "Durasi tidur hari kerja",
-            f"{step_one_preview['sleep_duration_hrs']:.2f} jam",
-        )
-        preview_col2.metric(
-            "Waktu untuk tertidur",
-            f"{step_one_preview['sleep_latency_mins']:.0f} menit",
-        )
-        preview_col3.metric(
-            "Jumlah terbangun",
-            f"{step_one_preview['wake_episodes_per_night']} kali",
-        )
+
 
         st.divider()
         col1, col2 = st.columns(2)
