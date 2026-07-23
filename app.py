@@ -17,26 +17,28 @@ import streamlit as st
 
 
 EXPECTED_FEATURES = [
+    "sleep_quality_score",
     "sleep_duration_hrs",
+    "mental_health_condition",
+    "cognitive_performance_score",
     "bmi",
+    "stress_score",
     "sleep_latency_mins",
     "wake_episodes_per_night",
-    "screen_time_before_bed_mins",
-    "work_hours_that_day",
-    "weekend_sleep_diff_hrs",
-    "nap_duration_mins",
 ]
 
+
 FEATURE_LABELS = {
-    "sleep_duration_hrs": "Durasi tidur hari kerja (jam)",
+    "sleep_quality_score": "Kualitas Tidur",
+    "sleep_duration_hrs": "Durasi Tidur (jam)",
+    "mental_health_condition": "Kondisi Mental",
+    "cognitive_performance_score": "Performa Kognitif",
     "bmi": "Indeks Massa Tubuh (BMI)",
-    "sleep_latency_mins": "Waktu untuk mulai tertidur (menit)",
-    "wake_episodes_per_night": "Frekuensi terbangun per malam",
-    "screen_time_before_bed_mins": "Jeda penggunaan gadget sebelum tidur (menit)",
-    "work_hours_that_day": "Lama bekerja/belajar (jam)",
-    "weekend_sleep_diff_hrs": "Selisih durasi tidur akhir pekan (jam)",
-    "nap_duration_mins": "Durasi tidur siang (menit)",
+    "stress_score": "Tingkat Stres",
+    "sleep_latency_mins": "Waktu Mulai Tidur (menit)",
+    "wake_episodes_per_night": "Frekuensi Terbangun per Malam",
 }
+
 
 RESULT_LABELS = {
     "healthy": "Risiko Gangguan Tidur Rendah",
@@ -204,12 +206,6 @@ def calculate_step_one(raw_input: dict | None = None) -> tuple[dict, list[str]]:
         equal_means_zero=True,
     )
 
-    screen_time_before_bed_mins = minutes_between(
-        raw_input["last_screen_time"],
-        raw_input["bed_attempt_time"],
-        equal_means_zero=True,
-    )
-
     errors: list[str] = []
 
     if not 2 <= sleep_duration_hrs <= 16:
@@ -224,21 +220,11 @@ def calculate_step_one(raw_input: dict | None = None) -> tuple[dict, list[str]]:
             "Periksa kembali urutan waktunya."
         )
 
-    if not 0 <= screen_time_before_bed_mins <= 720:
-        errors.append(
-            "Jeda penggunaan gadget sebelum tidur harus berada antara "
-            "0 dan 720 menit. Periksa kembali urutan waktunya."
-        )
-
     values = {
         "sleep_duration_hrs": round(sleep_duration_hrs, 2),
         "sleep_latency_mins": round(sleep_latency_mins, 2),
         "wake_episodes_per_night": int(raw_input["wake_episodes"]),
-        "screen_time_before_bed_mins": round(
-            screen_time_before_bed_mins,
-            2,
-        ),
-        "work_hours_that_day": float(raw_input["work_hours"]),
+
     }
 
     return values, errors
@@ -258,14 +244,7 @@ def calculate_final_input() -> tuple[dict, list[str]]:
     weight_kg = float(st.session_state.weight_kg)
     bmi = weight_kg / (height_m**2)
 
-    weekend_duration_hrs = minutes_between(
-        st.session_state.weekend_sleep_time,
-        st.session_state.weekend_wake_time,
-    ) / 60
 
-    weekend_sleep_diff_hrs = abs(
-        weekend_duration_hrs - step_one_values["sleep_duration_hrs"]
-    )
 
     if st.session_state.no_nap:
         nap_duration_mins = 0.0
@@ -282,28 +261,13 @@ def calculate_final_input() -> tuple[dict, list[str]]:
             "Periksa kembali tinggi dan berat badan."
         )
 
-    if not 2 <= weekend_duration_hrs <= 16:
-        errors.append(
-            "Durasi tidur akhir pekan yang dihitung harus berada antara "
-            "2 dan 16 jam."
-        )
-
-    if not 0 <= weekend_sleep_diff_hrs <= 14:
-        errors.append(
-            "Selisih durasi tidur hari kerja dan akhir pekan tidak wajar. "
-            "Periksa kembali waktu tidur yang dimasukkan."
-        )
-
-    if not 0 <= nap_duration_mins <= 360:
-        errors.append(
-            "Durasi tidur siang harus berada antara 0 dan 360 menit."
-        )
-
     final_input = {
         **step_one_values,
+        "sleep_quality_score": st.session_state.sleep_quality_score,
+        "mental_health_condition": st.session_state.mental_health_condition,
+        "cognitive_performance_score": st.session_state.cognitive_performance_score,
         "bmi": round(bmi, 2),
-        "weekend_sleep_diff_hrs": round(weekend_sleep_diff_hrs, 2),
-        "nap_duration_mins": round(nap_duration_mins, 2),
+        "stress_score": st.session_state.stress_score,
     }
 
     return final_input, errors
@@ -427,12 +391,7 @@ if menu == "🏠 Prediksi Risiko":
             )
 
         with col2:
-            st.time_input(
-                "Waktu terakhir menggunakan ponsel/laptop sebelum tidur",
-                value=saved_step_one.get("last_screen_time", time(21, 45)),
-                key="last_screen_time",
-                step=timedelta(minutes=1),
-            )
+
             st.number_input(
                 "Berapa kali biasanya terbangun dalam satu malam?",
                 min_value=0,
@@ -441,15 +400,7 @@ if menu == "🏠 Prediksi Risiko":
                 step=1,
                 key="wake_episodes",
             )
-            st.number_input(
-                "Berapa jam bekerja atau belajar dalam sehari?",
-                min_value=0.0,
-                max_value=24.0,
-                value=float(saved_step_one.get("work_hours", 8.0)),
-                step=0.1,
-                format="%.1f",
-                key="work_hours",
-            )
+
 
         st.caption(
             "Durasi tidur, waktu untuk mulai tertidur, dan jeda penggunaan "
@@ -475,8 +426,7 @@ if menu == "🏠 Prediksi Risiko":
                         "last_screen_time", time(21, 45)
                     ),
                     "wake_episodes": st.session_state.get("wake_episodes", 1),
-                    "work_hours": st.session_state.get("work_hours", 8.0),
-                }
+                                    }
 
                 step_one_values, validation_errors = calculate_step_one(
                     step_one_raw
@@ -529,8 +479,8 @@ if menu == "🏠 Prediksi Risiko":
             f"{step_one_preview['sleep_latency_mins']:.0f} menit",
         )
         preview_col3.metric(
-            "Jeda gadget sebelum tidur",
-            f"{step_one_preview['screen_time_before_bed_mins']:.0f} menit",
+            "Jumlah terbangun",
+            f"{step_one_preview['wake_episodes_per_night']} kali",
         )
 
         st.divider()
@@ -561,21 +511,30 @@ if menu == "🏠 Prediksi Risiko":
             )
 
         with col2:
-            st.time_input(
-                "Waktu mulai tidur pada akhir pekan",
-                value=time(23, 30),
-                key="weekend_sleep_time",
-                step=timedelta(minutes=1),
+            st.slider(
+                "Kualitas Tidur",
+                1, 10, 7,
+                key="sleep_quality_score"
             )
-            st.time_input(
-                "Waktu bangun pada akhir pekan",
-                value=time(7, 30),
-                key="weekend_wake_time",
-                step=timedelta(minutes=1),
+
+            st.selectbox(
+                "Kondisi Mental",
+                [0, 1, 2, 3],
+                key="mental_health_condition"
             )
-            st.caption(
-                "Sistem menghitung selisih absolut antara durasi tidur "
-                "hari kerja dan akhir pekan."
+
+            st.number_input(
+                "Performa Kognitif",
+                0,
+                100,
+                80,
+                key="cognitive_performance_score"
+            )
+
+            st.slider(
+                "Tingkat Stres",
+                1, 10, 5,
+                key="stress_score"
             )
 
         st.divider()
