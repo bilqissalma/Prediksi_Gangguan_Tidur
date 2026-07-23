@@ -264,7 +264,7 @@ if st.button(
     )[0]
 
 
-    prediction_name = s.inverse_transform(
+    prediction_name = label_encoders.inverse_transform(
         [int(prediction)]
     )[0]
 
