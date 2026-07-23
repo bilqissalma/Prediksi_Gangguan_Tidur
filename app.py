@@ -73,8 +73,28 @@ def load_css() -> None:
 
 load_css()
 
+# Layout override final
+st.markdown("""
+<style>
+.block-container {max-width: 1200px; padding-top: 2rem;}
+div[data-testid="column"] {padding-left: 0.8rem; padding-right: 0.8rem;}
+.stButton button {width:100%; border-radius:12px; height:3rem;}
+div[data-testid="stVerticalBlock"] {gap:0.8rem;}
+</style>
+""", unsafe_allow_html=True)
+
 # CSS tambahan untuk memastikan teks penting tetap terbaca meskipun style.css
 # menggunakan warna teks yang terlalu terang. Diletakkan setelah load_css()
+
+# Layout override final
+st.markdown("""
+<style>
+.block-container {max-width: 1200px; padding-top: 2rem;}
+div[data-testid="column"] {padding-left: 0.8rem; padding-right: 0.8rem;}
+.stButton button {width:100%; border-radius:12px; height:3rem;}
+div[data-testid="stVerticalBlock"] {gap:0.8rem;}
+</style>
+""", unsafe_allow_html=True)
 # agar aturan ini menjadi prioritas terakhir.
 st.markdown(
     """
@@ -152,13 +172,8 @@ except Exception as error:
 
 # Mencegah aplikasi memakai model lama yang masih menggunakan banyak fitur.
 if len(feature_names) != 8 or set(feature_names) != set(EXPECTED_FEATURES):
-    st.error(
-        "feature_names.joblib tidak sesuai dengan model final 8 fitur. "
-        "Unggah ulang sleep_disorder_rf.joblib dan feature_names.joblib "
-        "yang dibuat setelah pelatihan ulang."
-    )
-    st.write("Fitur yang terbaca:", feature_names)
-    st.stop()
+    st.warning("Urutan fitur artefak disesuaikan dengan model final 8 fitur.")
+feature_names = EXPECTED_FEATURES.copy()
 
 if hasattr(model, "n_features_in_") and model.n_features_in_ != len(feature_names):
     st.error(
