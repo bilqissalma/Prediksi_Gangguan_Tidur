@@ -9,7 +9,7 @@ import joblib
 # ============================================================
 
 model = joblib.load("sleep_disorder_rf.joblib")
-label_encoder = joblib.load("label_encoder.joblib")
+label_encoders = joblib.load("label_encoders.joblib")
 feature_names = joblib.load("feature_names.joblib")
 
 
@@ -264,7 +264,7 @@ if st.button(
     )[0]
 
 
-    prediction_name = label_encoder.inverse_transform(
+    prediction_name = s.inverse_transform(
         [int(prediction)]
     )[0]
 
@@ -277,7 +277,7 @@ if st.button(
     )[0]
 
 
-    class_names = label_encoder.classes_
+    class_names = label_encoders.classes_
 
 
 
