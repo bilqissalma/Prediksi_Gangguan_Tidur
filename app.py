@@ -527,11 +527,22 @@ if menu == "🏠 Prediksi Risiko":
                 key="sleep_quality_score"
             )
 
-            st.selectbox(
+            mental_health_mapping = {
+                "Baik": 0,
+                "Sedang": 1,
+                "Buruk": 2,
+                "Sangat Buruk": 3
+            }
+
+            mental_health_label = st.selectbox(
                 "Kondisi Mental",
-                [0, 1, 2, 3],
-                key="mental_health_condition"
+                list(mental_health_mapping.keys()),
+                key="mental_health_label"
             )
+
+            mental_health_condition = mental_health_mapping[
+                mental_health_label
+            ]
 
             st.number_input(
                 "Performa Kognitif",
