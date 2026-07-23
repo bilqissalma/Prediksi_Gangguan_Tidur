@@ -279,7 +279,12 @@ def calculate_final_input() -> tuple[dict, list[str]]:
     final_input = {
         **step_one_values,
         "sleep_quality_score": st.session_state.sleep_quality_score,
-        "mental_health_condition": st.session_state.mental_health_condition,
+       "mental_health_condition": {
+            "Baik": 0,
+            "Ringan": 1,
+            "Sedang": 2,
+            "Buruk": 3
+        }[st.session_state.mental_input],
         "cognitive_performance_score": st.session_state.cognitive_performance_score,
         "bmi": round(bmi, 2),
         "stress_score": st.session_state.stress_score,
@@ -526,23 +531,11 @@ if menu == "🏠 Prediksi Risiko":
                 1, 10, 7,
                 key="sleep_quality_score"
             )
-
-            mental_health_mapping = {
-                "Baik": 0,
-                "Sedang": 1,
-                "Buruk": 2,
-                "Sangat Buruk": 3
-            }
-
-            mental_health_label = st.selectbox(
+            mental_input = st.selectbox(
                 "Kondisi Mental",
-                list(mental_health_mapping.keys()),
-                key="mental_health_label"
+                ["Baik", "Ringan", "Sedang", "Buruk"],
+                key="mental_input"
             )
-
-            mental_health_condition = mental_health_mapping[
-                mental_health_label
-            ]
 
             st.number_input(
                 "Performa Kognitif",
