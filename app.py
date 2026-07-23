@@ -19,6 +19,38 @@ st.set_page_config(
     page_icon="🌙",
     layout="wide"
 )
+st.markdown(
+"""
+<style>
+
+.header{
+background:linear-gradient(135deg,#0B1F44,#2563EB);
+padding:35px;
+border-radius:20px;
+color:white;
+margin-bottom:25px;
+}
+
+.header h1{
+color:white;
+}
+
+.header h4{
+color:#E0F2FE;
+}
+
+.card{
+background:white;
+padding:25px;
+border-radius:18px;
+box-shadow:0px 5px 15px rgba(0,0,0,0.1);
+margin-bottom:20px;
+}
+
+</style>
+""",
+unsafe_allow_html=True
+)
 
 
 
@@ -199,8 +231,18 @@ def decode_target(value):
 # ============================================================
 
 
-st.title(
-    "🌙 Analisis Risiko Gangguan Tidur"
+st.markdown(
+"""
+<div class="header">
+<h1>🌙 Analisis Risiko Gangguan Tidur</h1>
+<h4>Random Forest Classification — Model Final 8 Fitur</h4>
+<p>
+Sistem prediksi tingkat risiko gangguan tidur
+berdasarkan pola tidur dan karakteristik pengguna.
+</p>
+</div>
+""",
+unsafe_allow_html=True
 )
 
 
@@ -476,10 +518,22 @@ if st.button(
 
 
 
-    st.success(
+    st.markdown(
+    f"""
+    <div class="card">
 
-        f"{icon} {display_result}"
+    <h2>
+    {icon} {display_result}
+    </h2>
 
+    <p>
+    Model Random Forest memprediksi kategori risiko
+    gangguan tidur berdasarkan 8 fitur utama pengguna.
+    </p>
+
+    </div>
+    """,
+    unsafe_allow_html=True
     )
 
 
